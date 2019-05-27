@@ -2,24 +2,36 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include     <BlynkSimpleEsp8266.h>
-BlynkTimer timer;
-WidgetMap myMap(V0);
+
 
 // your network SSID (name) & network password
 char myssid[] = "insert your SSID";
-char mypass[] = "insert your Password";
-char token_blynk[] = "Insert your Blynk Token";
-// UnwiredLabs API_Token. Signup here to get a free token https://unwiredlabs.com/trial
-String token = "Insert your UnwiredLabs token";
-
-String jsonString = "{\n";
-
-// Variables to store unwiredlabs response
-double latitude = 0.0;
-double longitude = 0.0;
+char mypass[] = "insert your Password$";
+char tokenBlynk[] = "Insert your Blynk Token";
+String UnwiredLabsToken = "Insert your UnwiredLabs token";
+//global variables 
 int indexPoint = 0;
-void checkGPS() {
+BlynkTimer timer;
+WidgetMap myMap(V0);
+
+//prototype functions
+int getPosition ( double *latitude , double *longitude);
+void UpdateLocationInMaps(void);
+
+void UpdateLocationInMaps() {
+  double latitude = 0.0;
+  double longitude = 0.0;
+  getPosition(&latitude, &longitude);
+  Blynk.virtualWrite(V1,  String(latitude, 6));
+  Blynk.virtualWrite(V2, String(longitude, 6));
+  String LocationName = "Esp8266 location: " + String(indexPoint);
+  myMap.location(indexPoint, latitude, longitude,LocationName);
+  indexPoint++;
+}
+
+int getPosition ( double *latitude , double *longitude) { 
   StaticJsonBuffer<200> jsonBuffer;
+  String jsonString = "{\n";
   char bssid[6];
   DynamicJsonBuffer jsonBuffer_;
   // WiFi.scanNetworks will return the number of networks found
@@ -35,7 +47,7 @@ void checkGPS() {
   // now build the jsonString...
   jsonString = "{\n";
   jsonString += "\"token\" : \"";
-  jsonString += token;
+  jsonString += UnwiredLabsToken;
   jsonString += "\",\n";
   jsonString += "\"wifi\": [\n";
   for (int j = 0; j < n; ++j) {
@@ -75,39 +87,28 @@ void checkGPS() {
     // Test if parsing succeeds.
     if (!root.success()) {
       Serial.println("parseObject() failed");
-      return;
+      return -1;
     }
     // Fetch values.
-    latitude = root["lat"];
-    longitude = root["lon"];
-    // Print values
-    Serial.println(" ###################");
-    Serial.println(latitude, 6);
-    Serial.println(longitude, 6);
-    Serial.println(" ###################");
+    *latitude = root["lat"];
+    *longitude = root["lon"];
   }
   else {
     http.end();  //Close connection
     Serial.println("Error");
+    return -2;
   }
-  /*latitude = random(1, 500) / 100.0;
-  longitude = random(1, 500) / 100.0;
-  Serial.println("closing connection");
-  Serial.println();
-  */
-  Blynk.virtualWrite(V1,  String(latitude, 6));
-  Blynk.virtualWrite(V2, String(longitude, 6));
-  String LocationName = "Esp8266 location: " + String(indexPoint);
-  myMap.location(indexPoint, latitude, longitude,LocationName);
-  indexPoint++;
+  return 1;
 }
+
 void setup() {
   Serial.begin(115200);
-  Blynk.begin(token_blynk, myssid, mypass);
+  Blynk.begin(tokenBlynk, myssid, mypass);
   //timer.setInterval(3000000L, checkGPS);
-  timer.setInterval(10000L, checkGPS);
+  timer.setInterval(10000L, UpdateLocationInMaps);
   myMap.clear();
 }
+
 void loop() {
   Blynk.run();
   timer.run();
